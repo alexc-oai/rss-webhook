@@ -53,36 +53,7 @@ function broadcastEvent(event, data) {
         client.res.write(payload);
     }
 }
-// Webhook receiver – central point that updates state and notifies
-app.post('/webhook', (req, res) => {
-    const { type, incident } = req.body;
-    if (type !== 'incident' || !incident) {
-        return res.status(400).json({ error: 'Invalid payload' });
-    }
-    // Upsert incident
-    const existing = incidents.get(incident.guid);
-    incidents.set(incident.guid, incident);
-    const hasActiveIssue = Array.from(incidents.values()).some(i => !i.resolved);
-    // Broadcast to clients
-    broadcastEvent('incident', { incident, hasActiveIssue });
-    // Desktop notification on new or status-changed incident
-    const isNew = !existing;
-    const changed = existing && existing.resolved !== incident.resolved;
-    if (isNew || changed) {
-        try {
-            node_notifier_1.default.notify({
-                title: incident.resolved ? 'OpenAI Incident Resolved' : 'OpenAI Status Update',
-                message: incident.title,
-                subtitle: incident.resolved ? 'Resolved' : 'Active',
-                open: incident.link,
-            });
-        }
-        catch {
-            // best-effort; ignore failures
-        }
-    }
-    return res.json({ ok: true });
-});
+// Removed webhook; RSS poller will call into onIncident below.
 // Start server, then poller
 const server = app.listen(PORT, () => {
     // eslint-disable-next-line no-console
@@ -90,7 +61,30 @@ const server = app.listen(PORT, () => {
 });
 (0, poller_1.startRssPoller)({
     intervalMs: Number(process.env.POLL_INTERVAL_MS || 15000),
-    webhookUrl: `http://localhost:${PORT}/webhook`,
+    onIncident: (incident) => {
+        // Upsert incident
+        const existing = incidents.get(incident.guid);
+        incidents.set(incident.guid, incident);
+        const hasActiveIssue = Array.from(incidents.values()).some(i => !i.resolved);
+        // Broadcast to clients
+        broadcastEvent('incident', { incident, hasActiveIssue });
+        // Desktop notification on new or status-changed incident
+        const isNew = !existing;
+        const changed = existing && existing.resolved !== incident.resolved;
+        if (isNew || changed) {
+            try {
+                node_notifier_1.default.notify({
+                    title: incident.resolved ? 'OpenAI Incident Resolved' : 'OpenAI Status Update',
+                    message: incident.title,
+                    subtitle: incident.resolved ? 'Resolved' : 'Active',
+                    open: incident.link,
+                });
+            }
+            catch {
+                // best-effort; ignore failures
+            }
+        }
+    },
 });
 process.on('SIGINT', () => {
     server.close(() => process.exit(0));

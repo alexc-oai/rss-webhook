@@ -11,7 +11,7 @@ type Incident = {
 
 type StartOptions = {
 	intervalMs: number;
-	webhookUrl: string;
+	onIncident: (incident: Incident) => void | Promise<void>;
 };
 
 const FEED_URL = 'https://status.openai.com/feed.rss';
@@ -45,7 +45,7 @@ export function startRssPoller(options: StartOptions) {
 					resolved,
 				};
 
-				await dispatchToWebhook(options.webhookUrl, incident);
+				await options.onIncident(incident);
 			}
 		} catch (err) {
 			// eslint-disable-next-line no-console
@@ -59,18 +59,4 @@ export function startRssPoller(options: StartOptions) {
 	pollOnce();
 	setInterval(pollOnce, options.intervalMs);
 }
-
-async function dispatchToWebhook(webhookUrl: string, incident: Incident) {
-	try {
-		await fetch(webhookUrl, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ type: 'incident', incident }),
-		});
-	} catch (err) {
-		// eslint-disable-next-line no-console
-		console.error('Webhook dispatch error', err);
-	}
-}
-
 

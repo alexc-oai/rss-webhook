@@ -34,7 +34,7 @@ function startRssPoller(options) {
                     publishedAt: new Date(item.isoDate || item.pubDate || Date.now()).toISOString(),
                     resolved,
                 };
-                await dispatchToWebhook(options.webhookUrl, incident);
+                await options.onIncident(incident);
             }
         }
         catch (err) {
@@ -48,18 +48,5 @@ function startRssPoller(options) {
     // Kick off immediately, then at interval
     pollOnce();
     setInterval(pollOnce, options.intervalMs);
-}
-async function dispatchToWebhook(webhookUrl, incident) {
-    try {
-        await fetch(webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'incident', incident }),
-        });
-    }
-    catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('Webhook dispatch error', err);
-    }
 }
 //# sourceMappingURL=poller.js.map

@@ -9,7 +9,7 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const node_notifier_1 = __importDefault(require("node-notifier"));
 const poller_1 = require("./poller");
 dotenv_1.default.config();
-const PORT = Number(process.env.PORT || 3000);
+const PORT = Number(process.env.PORT || 3030);
 // In-memory state
 const incidents = new Map();
 const sseClients = [];
@@ -20,6 +20,26 @@ app.use(express_1.default.json({ limit: '1mb' }));
 // Health
 app.get('/health', (_req, res) => {
     res.json({ ok: true });
+});
+// v0-style status endpoint for frontend
+app.get('/api/status', (_req, res) => {
+    const list = Array.from(incidents.values()).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+    const mapped = list.map(i => ({
+        id: i.guid,
+        title: i.title,
+        description: i.content,
+        status: i.resolved ? 'resolved' : 'investigating',
+        impact: i.resolved ? 'none' : 'major',
+        components: [],
+        createdAt: i.publishedAt,
+        updatedAt: i.publishedAt,
+        isNew: !i.resolved,
+    }));
+    res.json({
+        incidents: mapped,
+        components: [],
+        lastUpdated: new Date().toISOString(),
+    });
 });
 // Current incidents and overall status
 app.get('/incidents', (_req, res) => {

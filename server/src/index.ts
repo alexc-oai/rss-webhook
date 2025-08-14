@@ -15,7 +15,7 @@ type Incident = {
 	resolved: boolean;
 };
 
-const PORT = Number(process.env.PORT || 3000);
+const PORT = Number(process.env.PORT || 3030);
 
 // In-memory state
 const incidents: Map<string, Incident> = new Map();
@@ -32,6 +32,29 @@ app.use(express.json({ limit: '1mb' }));
 // Health
 app.get('/health', (_req, res) => {
 	res.json({ ok: true });
+});
+
+// v0-style status endpoint for frontend
+app.get('/api/status', (_req, res) => {
+    const list = Array.from(incidents.values()).sort((a, b) =>
+        b.publishedAt.localeCompare(a.publishedAt)
+    );
+    const mapped = list.map(i => ({
+        id: i.guid,
+        title: i.title,
+        description: i.content,
+        status: i.resolved ? 'resolved' : 'investigating',
+        impact: i.resolved ? 'none' as const : 'major' as const,
+        components: [] as string[],
+        createdAt: i.publishedAt,
+        updatedAt: i.publishedAt,
+        isNew: !i.resolved,
+    }));
+    res.json({
+        incidents: mapped,
+        components: [],
+        lastUpdated: new Date().toISOString(),
+    });
 });
 
 // Current incidents and overall status

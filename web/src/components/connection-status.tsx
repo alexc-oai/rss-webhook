@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Wifi, WifiOff, Loader2, AlertTriangle, RefreshCw } from "lucide-react"
@@ -12,6 +13,13 @@ interface ConnectionStatusProps {
 }
 
 export function ConnectionStatus({ status, lastUpdated, onRefresh }: ConnectionStatusProps) {
+  const [now, setNow] = useState<Date>(new Date())
+
+  // Tick every second so the relative "Last updated" time progresses
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(interval)
+  }, [])
   const statusConfig = {
     connected: {
       icon: Wifi,
@@ -47,7 +55,6 @@ export function ConnectionStatus({ status, lastUpdated, onRefresh }: ConnectionS
     if (!timestamp) return "Never"
 
     const date = new Date(timestamp)
-    const now = new Date()
     const diffMs = now.getTime() - date.getTime()
     const diffSeconds = Math.floor(diffMs / 1000)
     const diffMinutes = Math.floor(diffSeconds / 60)

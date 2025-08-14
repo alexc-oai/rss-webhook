@@ -14,7 +14,7 @@ type StartOptions = {
 	onIncident: (incident: Incident) => void | Promise<void>;
 };
 
-const FEED_URL = 'https://status.openai.com/feed.rss';
+const FEED_URL = process.env.FEED_URL || 'https://status.openai.com/feed.rss';
 
 export function startRssPoller(options: StartOptions) {
 	const parser = new Parser();

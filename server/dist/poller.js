@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.startRssPoller = startRssPoller;
 const rss_parser_1 = __importDefault(require("rss-parser"));
-const FEED_URL = 'https://status.openai.com/feed.rss';
+const FEED_URL = process.env.FEED_URL || 'https://status.openai.com/feed.rss';
 function startRssPoller(options) {
     const parser = new rss_parser_1.default();
     const seenGuids = new Set();

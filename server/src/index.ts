@@ -123,40 +123,64 @@ function deriveImpact(incident: Incident): 'none' | 'minor' | 'major' | 'critica
     return incident.resolved ? 'none' : 'major'
 }
 
+function handleIncident(incident: Incident) {
+    const existing = incidents.get(incident.guid);
+    incidents.set(incident.guid, incident);
+
+    const hasActiveIssue = Array.from(incidents.values()).some(i => !i.resolved);
+    broadcastEvent('incident', { incident, hasActiveIssue });
+
+    const isNew = !existing;
+    const changed = existing && existing.resolved !== incident.resolved;
+    if (isNew || changed) {
+        try {
+            notifier.notify({
+                title: incident.resolved ? 'OpenAI Incident Resolved' : 'OpenAI Status Update',
+                message: incident.title,
+                subtitle: incident.resolved ? 'Resolved' : 'Active',
+                open: incident.link,
+            });
+        } catch {
+            // best-effort; ignore failures
+        }
+    }
+}
+
+// Test endpoints to simulate incidents locally
+app.post('/test/incident', (req, res) => {
+    const { title, content, resolved } = req.body as Partial<Incident> & { resolved?: boolean };
+    const incident: Incident = {
+        guid: `test-${Date.now()}`,
+        title: title || 'OpenAI API degraded performance',
+        link: 'https://status.openai.com/',
+        content: content || 'We are investigating elevated error rates impacting the API.',
+        publishedAt: new Date().toISOString(),
+        resolved: Boolean(resolved) || false,
+    };
+    handleIncident(incident);
+    res.json({ ok: true, incident });
+});
+
+app.post('/test/resolve', (req, res) => {
+    const { guid } = req.body as { guid?: string };
+    if (!guid || !incidents.has(guid)) {
+        return res.status(400).json({ ok: false, error: 'Unknown guid' });
+    }
+    const existing = incidents.get(guid)!;
+    const resolved: Incident = { ...existing, resolved: true, publishedAt: new Date().toISOString() };
+    handleIncident(resolved);
+    res.json({ ok: true, incident: resolved });
+});
+
 // Start server, then poller
 const server = app.listen(PORT, () => {
-	// eslint-disable-next-line no-console
-	console.log(`Server listening on http://localhost:${PORT}`);
+    // eslint-disable-next-line no-console
+    console.log(`Server listening on http://localhost:${PORT}`);
 });
 
 startRssPoller({
-	intervalMs: Number(process.env.POLL_INTERVAL_MS || 15000),
-	onIncident: (incident: Incident) => {
-		// Upsert incident
-		const existing = incidents.get(incident.guid);
-		incidents.set(incident.guid, incident);
-
-		const hasActiveIssue = Array.from(incidents.values()).some(i => !i.resolved);
-
-		// Broadcast to clients
-		broadcastEvent('incident', { incident, hasActiveIssue });
-
-		// Desktop notification on new or status-changed incident
-		const isNew = !existing;
-		const changed = existing && existing.resolved !== incident.resolved;
-		if (isNew || changed) {
-			try {
-				notifier.notify({
-					title: incident.resolved ? 'OpenAI Incident Resolved' : 'OpenAI Status Update',
-					message: incident.title,
-					subtitle: incident.resolved ? 'Resolved' : 'Active',
-					open: incident.link,
-				});
-			} catch {
-				// best-effort; ignore failures
-			}
-		}
-	},
+    intervalMs: Number(process.env.POLL_INTERVAL_MS || 15000),
+    onIncident: (incident: Incident) => handleIncident(incident),
 });
 
 process.on('SIGINT', () => {

@@ -6,6 +6,7 @@ import { IncidentList } from '@/components/incident-list'
 import { ConnectionStatus } from '@/components/connection-status'
 import { useStatus } from '@/hooks/use-status'
 import { IncidentFilters } from '@/components/incident-filters'
+import { ComponentFilterBar } from '@/components/component-filter-bar'
 
 function App() {
 	return (
@@ -32,8 +33,17 @@ export default App
 function AppBody() {
     const { status, loading, connectionStatus, lastUpdated, refetch } = useStatus()
     const [showResolved, setShowResolved] = useState<boolean>(true)
+    const [selectedComponents, setSelectedComponents] = useState<string[]>([])
     const activeCount = (status?.incidents || []).filter(i => i.status !== 'resolved').length
     const resolvedCount = (status?.incidents || []).filter(i => i.status === 'resolved').length
+    const toggleComponent = (component: string) => {
+        setSelectedComponents(prev => prev.includes(component) ? prev.filter(c => c !== component) : [...prev, component])
+    }
+    const clearComponents = () => setSelectedComponents([])
+    const filteredIncidents = (status?.incidents || []).filter(i => {
+        if (selectedComponents.length === 0) return true
+        return i.components.some(c => selectedComponents.includes(c))
+    })
 	return (
 		<>
 			<ConnectionStatus status={connectionStatus} lastUpdated={lastUpdated} onRefresh={refetch} />
@@ -44,9 +54,15 @@ function AppBody() {
                 activeCount={activeCount}
                 resolvedCount={resolvedCount}
             />
+            <ComponentFilterBar
+                incidents={status?.incidents || []}
+                selectedComponents={selectedComponents}
+                onComponentToggle={toggleComponent}
+                onClearFilters={clearComponents}
+            />
             {!loading && (
                 <IncidentList
-                    incidents={(status?.incidents || [])}
+                    incidents={filteredIncidents}
                     showResolved={showResolved}
                 />
             )}
